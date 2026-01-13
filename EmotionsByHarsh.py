@@ -14,7 +14,7 @@ import plotly.express as px
 
 # ---------------- Config ----------------
 st.set_page_config(page_title="Emotion Studio", layout="wide", initial_sidebar_state="expanded")
-CSV_PATH = r"C:\Users\harsh\OneDrive\Desktop\TY proj\emotions.csv"
+CSV_PATH = "emotions.csv.gz"
 AUTHOR_TEXT = "Code Author — Harsh Raundal"
 AUTHOR_LINK = "https://github.com/BlacklegCODE"
 EMOTION_MAP = {0: "sadness", 1: "joy", 2: "love", 3: "anger", 4: "fear", 5: "surprise"}
@@ -151,23 +151,22 @@ with st.sidebar:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------- Data loader ----------------
+# ---------------- Data loader (supports .csv and .csv.gz) ----------------
 @st.cache_data(show_spinner=False)
 def load_csv(path):
     if not os.path.exists(path):
         return None
     try:
-        df = pd.read_csv(path, header=None, names=["text", "label"], encoding="utf-8")
+        # works for both .csv and .csv.gz
+        df = pd.read_csv(path, compression="infer", encoding="utf-8")
+        # if file has no header, enforce names
+        if df.shape[1] == 2:
+            df.columns = ["text", "label"]
         df = df.dropna().astype({"text": str, "label": int})
         return df
     except Exception:
-        try:
-            df = pd.read_csv(path, encoding="utf-8")
-            if "text" in df.columns and "label" in df.columns:
-                df = df[["text", "label"]].dropna().astype({"text": str, "label": int})
-                return df
-            return None
-        except Exception:
-            return None
+        return None
+
 
 df = load_csv(CSV_PATH)
 if df is None or df.shape[0] < 6:
@@ -449,3 +448,4 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
