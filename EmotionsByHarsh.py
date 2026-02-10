@@ -17,6 +17,16 @@ CSV_PATH = "emotions.csv.gz"
 AUTHOR_TEXT = "Code Author — Harsh Raundal"
 AUTHOR_LINK = "https://github.com/BlacklegCODE"
 EMOTION_MAP = {0: "sadness", 1: "joy", 2: "love", 3: "anger", 4: "fear", 5: "surprise"}
+# --- emojis ---
+EMOJI_MAP = {
+    0: "😢",
+    1: "😄",
+    2: "😍",
+    3: "😡",
+    4: "😨",
+    5: "😲",
+}
+
 CLASS_LIST = np.array([0, 1, 2, 3, 4, 5])
 
 # ---------------- Polished CSS + Animations ----------------
@@ -486,6 +496,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
 
 
 
