@@ -10,7 +10,8 @@ from sklearn.feature_extraction.text import HashingVectorizer, TfidfVectorizer
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import SGDClassifier
 import plotly.express as px
-
+import plotly.graph_objects as go
+import math
 # ---------------- Config ----------------
 st.set_page_config(page_title="Emotion Studio", layout="wide", initial_sidebar_state="expanded")
 CSV_PATH = "emotions.csv.gz"
@@ -301,6 +302,46 @@ def fast_predict(text):
         return lab, EMOTION_MAP.get(lab, str(lab))
     except Exception:
         return None
+# --- robust confidence extractor ---
+def get_proba_and_confidence(clf, vec, text):
+    """
+    Returns (probs_array, max_confidence_float).
+    Works with predict_proba, decision_function (softmax), or fallback.
+    """
+    if clf is None or vec is None:
+        return None, 0.0
+    try:
+        Xq = vec.transform([text])
+        if hasattr(clf, "predict_proba"):
+            probs = clf.predict_proba(Xq)[0]
+            conf = float(max(probs))
+            return probs, conf
+        # fallback: decision_function -> softmax
+        if hasattr(clf, "decision_function"):
+            dfv = clf.decision_function(Xq)
+            arr = np.array(dfv)
+            # binary returns scalar — handle
+            if arr.ndim == 0 or arr.shape == ():
+                # map to two-class softmax
+                vals = np.array([ -arr, arr ])
+            else:
+                vals = arr[0] if arr.ndim > 1 else arr
+            # softmax
+            ex = np.exp(vals - np.max(vals))
+            probs = ex / ex.sum()
+            conf = float(np.max(probs))
+            return probs, conf
+    except Exception:
+        pass
+    # last resort: one-hot on prediction
+    try:
+        pred = int(clf.predict(vec.transform([text]))[0])
+        probs = np.zeros(len(CLASS_LIST))
+        idx = list(CLASS_LIST).index(pred) if pred in CLASS_LIST else 0
+        probs[idx] = 1.0
+        return probs, 1.0
+    except Exception:
+        return None, 0.0
 
 # Faster similarity: smaller TF-IDF, cached
 @st.cache_data(show_spinner=False)
@@ -347,6 +388,12 @@ def similar_sentences_tfidf(query, texts, k=3):
 if "pred_history" not in st.session_state:
     st.session_state.pred_history = []  # list of dicts: {"text","label","label_name","ts"}
 
+# store last N for realtime strip chart
+if "timeline" not in st.session_state:
+    st.session_state.timeline = []  # list of dicts: {"ts","label","emoji","conf","intensity"}
+MAX_TIMELINE = 40
+
+
 # ---------------- UI header + small author badge ----------------
 st.markdown('<div class="neon-border" style="padding:10px; margin-bottom:10px;">', unsafe_allow_html=True)
 st.markdown("<h2 style='margin:0'>Emotion Studio — Fast & Animated</h2>", unsafe_allow_html=True)
@@ -366,11 +413,13 @@ if nav == "test":
     st.subheader("Test Emotions !")
     st.write("Type a sentence and press Check. Prediction is fast (Hashing + SGD).")
     user_text = st.text_area("Your sentence", height=160, key="input_text")
-    if st.button("Check", key="btn_check"):
+        if st.button("Check", key="btn_check"):
         if not user_text or user_text.strip() == "":
             st.warning("Write a sentence first.")
         else:
+            # predict label + probs
             res = fast_predict(user_text)
+            probs, conf = get_proba_and_confidence(clf, vec, user_text)
             if res is None:
                 st.info("Model not available. Showing closest examples.")
                 sims = similar_sentences_tfidf(user_text, df["text"].astype(str).tolist(), k=3)
@@ -380,29 +429,106 @@ if nav == "test":
             else:
                 lab, name = res
                 emoji = EMOJI_MAP.get(int(lab), "❓")
-                st.markdown(
-                    f"""
-                    <div class="result-hero">
-                        <div style="font-size:90px">{emoji}</div>
-                        {name.upper()}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+
+                # 1) Confidence threshold control
+                thresh = st.sidebar.slider("Confidence threshold (hide low-confidence preds)", 0.0, 1.0, 0.35, 0.01)
+                # 2) Intensity slider (user can set before saving)
+                intensity = st.slider("Tone / intensity (mild → extreme)", 0, 100, 50, key="intensity_slider")
+
+                # 3) Animate a gauge from 0 → conf*100 (quick)
+                gauge_placeholder = st.empty()
+                target_val = int(round(conf * 100, 0)) if conf is not None else 0
+                for v in range(0, target_val + 1, max(1, int(max(1, target_val/20)))):
+                    figg = go.Figure(go.Indicator(
+                        mode="gauge+number",
+                        value=v,
+                        gauge={'axis': {'range': [0, 100]}},
+                        title={'text': f"{name.upper()} — confidence"},
+                        number={'suffix': "%"}
+                    ))
+                    figg.update_layout(height=280, margin=dict(l=10,r=10,t=40,b=10))
+                    gauge_placeholder.plotly_chart(figg, use_container_width=True)
+                    time.sleep(0.01)
+                # final stable gauge (ensure target exact)
+                figg = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=target_val,
+                    gauge={'axis': {'range': [0, 100]}},
+                    title={'text': f"{name.upper()} — confidence"},
+                    number={'suffix': "%"}
+                ))
+                figg.update_layout(height=280, margin=dict(l=10,r=10,t=40,b=10))
+                gauge_placeholder.plotly_chart(figg, use_container_width=True)
+
+                # 4) Hide label if below threshold
+                if conf < thresh:
+                    st.warning(f"Low confidence ({conf:.2f}) — label hidden. Try a clearer sentence or give feedback.")
+                    # still record a low-confidence entry (with label=None)
+                    recorded_label = None
+                    recorded_name = None
+                else:
+                    st.markdown(f'<div class="result-hero emoji-hero">{emoji}<br><small>{name.upper()}</small></div>', unsafe_allow_html=True)
+                    recorded_label = int(lab)
+                    recorded_name = name
+
+                # similar examples
                 sims = similar_sentences_tfidf(user_text, df[df["label"] == lab]["text"].astype(str).tolist(), k=3)
                 if not sims:
                     sims = similar_sentences_tfidf(user_text, df["text"].astype(str).tolist(), k=3)
                 st.markdown("**Similar examples:**")
                 for s in sims:
                     st.write("• " + s)
-                # record to history with timestamp
+
+                # 5) save to pred_history (include emoji, confidence, intensity)
                 st.session_state.pred_history.append({
                     "text": user_text,
-                    "label": int(lab),
-                    "label_name": name,
+                    "label": recorded_label if recorded_label is not None else int(lab),
+                    "label_name": recorded_name if recorded_name is not None else name,
+                    "emoji": emoji,
+                    "confidence": float(conf if conf is not None else 0.0),
+                    "intensity": int(intensity),
                     "ts": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
-    # export predictions history button
+
+                # 6) update timeline (push and cap)
+                st.session_state.timeline.append({
+                    "ts": pd.Timestamp.now(),
+                    "label": int(lab),
+                    "emoji": emoji,
+                    "conf": float(conf if conf is not None else 0.0),
+                    "intensity": int(intensity)
+                })
+                if len(st.session_state.timeline) > MAX_TIMELINE:
+                    st.session_state.timeline = st.session_state.timeline[-MAX_TIMELINE:]
+
+
+# --- realtime timeline plot (last N preds) ---
+if st.session_state.timeline:
+    tl = st.session_state.timeline
+    df_tl = pd.DataFrame(tl)
+    # ensure ts for plotting
+    df_tl["ts_str"] = df_tl["ts"].dt.strftime("%H:%M:%S")
+    # y is label index for plotting
+    df_tl["y"] = df_tl["label"].astype(int)
+    # build scatter line with emoji hover (use customdata)
+    fig_t = go.Figure()
+    fig_t.add_trace(go.Scatter(
+        x=df_tl["ts_str"],
+        y=df_tl["y"],
+        mode="lines+markers",
+        marker=dict(size=8 + (df_tl["intensity"]/10)),
+        line=dict(width=2),
+        text=df_tl["emoji"],  # shows on hover as text if used in hovertemplate
+        customdata=np.stack([df_tl["emoji"], df_tl["conf"], df_tl["intensity"]], axis=1),
+        hovertemplate="<b>%{x}</b><br>Emotion: %{y}<br>Emoji: %{customdata[0]}<br>Conf: %{customdata[1]:.2f}<br>Intensity: %{customdata[2]}<extra></extra>"
+    ))
+    fig_t.update_yaxes(tickmode="array",
+                       tickvals=list(sorted(list(EMOTION_MAP.keys()))),
+                       ticktext=[EMOTION_MAP[k].capitalize() for k in sorted(EMOTION_MAP.keys())])
+    fig_t.update_layout(title="Realtime Predictions timeline", margin=dict(l=20,r=20,t=30,b=20), height=300)
+    st.plotly_chart(fig_t, use_container_width=True)
+
+# export predictions history button
     if st.session_state.pred_history:
         hist_df = pd.DataFrame(st.session_state.pred_history)
         csv_bytes = hist_df.to_csv(index=False).encode("utf-8")
@@ -505,6 +631,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
 
 
 
