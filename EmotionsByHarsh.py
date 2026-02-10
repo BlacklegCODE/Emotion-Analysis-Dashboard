@@ -412,95 +412,109 @@ if nav == "test":
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("Test Emotions !")
     st.write("Type a sentence and press Check. Prediction is fast (Hashing + SGD).")
+
     user_text = st.text_area("Your sentence", height=160, key="input_text")
-        if st.button("Check", key="btn_check"):
+
+    if st.button("Check", key="btn_check"):
         if not user_text or user_text.strip() == "":
             st.warning("Write a sentence first.")
         else:
-            # predict label + probs
             res = fast_predict(user_text)
             probs, conf = get_proba_and_confidence(clf, vec, user_text)
+
             if res is None:
                 st.info("Model not available. Showing closest examples.")
-                sims = similar_sentences_tfidf(user_text, df["text"].astype(str).tolist(), k=3)
-                st.write("Closest examples:")
+                sims = similar_sentences_tfidf(
+                    user_text,
+                    df["text"].astype(str).tolist(),
+                    k=3
+                )
                 for s in sims:
                     st.write("• " + s)
+
             else:
                 lab, name = res
                 emoji = EMOJI_MAP.get(int(lab), "❓")
 
-                # 1) Confidence threshold control
-                thresh = st.sidebar.slider("Confidence threshold (hide low-confidence preds)", 0.0, 1.0, 0.35, 0.01)
-                # 2) Intensity slider (user can set before saving)
-                intensity = st.slider("Tone / intensity (mild → extreme)", 0, 100, 50, key="intensity_slider")
+                # sliders
+                thresh = st.sidebar.slider(
+                    "Confidence threshold",
+                    0.0, 1.0, 0.35, 0.01
+                )
+                intensity = st.slider(
+                    "Tone / intensity",
+                    0, 100, 50,
+                    key="intensity_slider"
+                )
 
-                # 3) Animate a gauge from 0 → conf*100 (quick)
+                # ----- animated gauge -----
                 gauge_placeholder = st.empty()
-                target_val = int(round(conf * 100, 0)) if conf is not None else 0
-                for v in range(0, target_val + 1, max(1, int(max(1, target_val/20)))):
+                target_val = int(round(conf * 100)) if conf else 0
+
+                for v in range(0, target_val + 1, max(1, target_val // 20 or 1)):
                     figg = go.Figure(go.Indicator(
                         mode="gauge+number",
                         value=v,
                         gauge={'axis': {'range': [0, 100]}},
-                        title={'text': f"{name.upper()} — confidence"},
                         number={'suffix': "%"}
                     ))
-                    figg.update_layout(height=280, margin=dict(l=10,r=10,t=40,b=10))
+                    figg.update_layout(height=260)
                     gauge_placeholder.plotly_chart(figg, use_container_width=True)
                     time.sleep(0.01)
-                # final stable gauge (ensure target exact)
+
+                # final gauge
                 figg = go.Figure(go.Indicator(
                     mode="gauge+number",
                     value=target_val,
                     gauge={'axis': {'range': [0, 100]}},
-                    title={'text': f"{name.upper()} — confidence"},
                     number={'suffix': "%"}
                 ))
-                figg.update_layout(height=280, margin=dict(l=10,r=10,t=40,b=10))
+                figg.update_layout(height=260)
                 gauge_placeholder.plotly_chart(figg, use_container_width=True)
 
-                # 4) Hide label if below threshold
+                # ----- threshold hide -----
                 if conf < thresh:
-                    st.warning(f"Low confidence ({conf:.2f}) — label hidden. Try a clearer sentence or give feedback.")
-                    # still record a low-confidence entry (with label=None)
-                    recorded_label = None
-                    recorded_name = None
+                    st.warning(f"Low confidence ({conf:.2f}) — hidden.")
+                    show_label = False
                 else:
-                    st.markdown(f'<div class="result-hero emoji-hero">{emoji}<br><small>{name.upper()}</small></div>', unsafe_allow_html=True)
-                    recorded_label = int(lab)
-                    recorded_name = name
+                    show_label = True
+                    st.markdown(
+                        f'<div class="result-hero emoji-hero">{emoji}<br><small>{name.upper()}</small></div>',
+                        unsafe_allow_html=True
+                    )
 
                 # similar examples
-                sims = similar_sentences_tfidf(user_text, df[df["label"] == lab]["text"].astype(str).tolist(), k=3)
-                if not sims:
-                    sims = similar_sentences_tfidf(user_text, df["text"].astype(str).tolist(), k=3)
+                sims = similar_sentences_tfidf(
+                    user_text,
+                    df[df["label"] == lab]["text"].astype(str).tolist(),
+                    k=3
+                )
                 st.markdown("**Similar examples:**")
                 for s in sims:
                     st.write("• " + s)
 
-                # 5) save to pred_history (include emoji, confidence, intensity)
+                # save history
                 st.session_state.pred_history.append({
                     "text": user_text,
-                    "label": recorded_label if recorded_label is not None else int(lab),
-                    "label_name": recorded_name if recorded_name is not None else name,
+                    "label": int(lab),
+                    "label_name": name,
                     "emoji": emoji,
-                    "confidence": float(conf if conf is not None else 0.0),
+                    "confidence": float(conf or 0),
                     "intensity": int(intensity),
                     "ts": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
 
-                # 6) update timeline (push and cap)
+                # timeline
                 st.session_state.timeline.append({
                     "ts": pd.Timestamp.now(),
                     "label": int(lab),
                     "emoji": emoji,
-                    "conf": float(conf if conf is not None else 0.0),
+                    "conf": float(conf or 0),
                     "intensity": int(intensity)
                 })
+
                 if len(st.session_state.timeline) > MAX_TIMELINE:
                     st.session_state.timeline = st.session_state.timeline[-MAX_TIMELINE:]
-
 
 # --- realtime timeline plot (last N preds) ---
 if st.session_state.timeline:
