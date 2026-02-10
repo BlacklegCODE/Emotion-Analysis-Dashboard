@@ -1,3 +1,4 @@
+# EmotionsByHarsh.py — cleaned, fixed indentation, duplicates removed, features kept
 import os
 import io
 import time
@@ -12,6 +13,7 @@ from sklearn.linear_model import SGDClassifier
 import plotly.express as px
 import plotly.graph_objects as go
 import math
+
 # ---------------- Config ----------------
 st.set_page_config(page_title="Emotion Studio", layout="wide", initial_sidebar_state="expanded")
 CSV_PATH = "emotions.csv.gz"
@@ -54,19 +56,18 @@ st.markdown(
         animation: popIn .4s ease;
     }
     /* emoji hero */
-.emoji-hero {
-    font-size:96px;
-    text-align:center;
-    padding:12px 0;
-    line-height:1;
-}
-.result-hero small {
-    display:block;
-    font-size:18px;
-    margin-top:6px;
-    color:#cfe6ff;
-}
-
+    .emoji-hero {
+        font-size:96px;
+        text-align:center;
+        padding:12px 0;
+        line-height:1;
+    }
+    .result-hero small {
+        display:block;
+        font-size:18px;
+        margin-top:6px;
+        color:#cfe6ff;
+    }
 
     @keyframes popIn {
         from {transform:scale(.9); opacity:0;}
@@ -198,31 +199,20 @@ with st.sidebar:
     # signature in sidebar
     st.markdown(f'<div class="author-link">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank">GitHub</a></div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-    
-# ---------------- Data loader (supports .csv and .csv.gz) ----------------
-# --- TF-IDF builder + similar-sentences helper (single canonical copy) ---
-@st.cache_data(show_spinner=False)
-def build_tfidf_for_similarity(texts, max_features=4000):
-    """Build or fit a TfidfVectorizer used for quick similarity lookups."""
-    vec = TfidfVectorizer(max_features=max_features, ngram_range=(1,2))
-    # If no texts, fit on a dummy sample to avoid errors
-    if not texts:
-        vec.fit(["dummy"])
-        return vec
-    vec.fit(texts)
-    return vec
 
+# ---------------- Data loader (supports .csv and .csv.gz) ----------------
 @st.cache_data(show_spinner=False)
-def similar_sentences_tfidf(query, texts, k=3, max_features=4000):
-    """Return top-k most similar texts to query using cached TF-IDF."""
-    if not texts:
-        return []
-    tvec = build_tfidf_for_similarity(texts, max_features=max_features)
-    A = tvec.transform(texts)
-    q = tvec.transform([query])
-    sims = cosine_similarity(q, A)[0]
-    idx = np.argsort(-sims)[:k]
-    return [texts[i] for i in idx if i < len(texts)]
+def load_csv(path):
+    if not os.path.exists(path):
+        return None
+    try:
+        df = pd.read_csv(path, compression="infer", encoding="utf-8")
+        if df.shape[1] == 2:
+            df.columns = ["text", "label"]
+        df = df.dropna().astype({"text": str, "label": int})
+        return df
+    except Exception:
+        return None
 
 
 df = load_csv(CSV_PATH)
@@ -238,6 +228,7 @@ if df is None or df.shape[0] < 6:
         ("wow that shocked me", 5),
     ]
     df = pd.DataFrame(sample, columns=["text", "label"])
+
 
 @st.cache_resource(show_spinner=False)
 def build_fast_model_safe(df_local, n_features=2**16, max_train_samples=20000):
@@ -295,8 +286,10 @@ def build_fast_model_safe(df_local, n_features=2**16, max_train_samples=20000):
             except Exception:
                 return None, None, present_classes, "none"
 
+
 # Build model (cached) and show debug info
 vec, clf, used_classes, model_kind = build_fast_model_safe(df)
+
 
 def fast_predict(text):
     """
@@ -311,31 +304,30 @@ def fast_predict(text):
         return lab, EMOTION_MAP.get(lab, str(lab))
     except Exception:
         return None
+
+
 # --- robust confidence extractor ---
-def get_proba_and_confidence(clf, vec, text):
+def get_proba_and_confidence(clf_local, vec_local, text):
     """
     Returns (probs_array, max_confidence_float).
     Works with predict_proba, decision_function (softmax), or fallback.
     """
-    if clf is None or vec is None:
+    if clf_local is None or vec_local is None:
         return None, 0.0
     try:
-        Xq = vec.transform([text])
-        if hasattr(clf, "predict_proba"):
-            probs = clf.predict_proba(Xq)[0]
+        Xq = vec_local.transform([text])
+        if hasattr(clf_local, "predict_proba"):
+            probs = clf_local.predict_proba(Xq)[0]
             conf = float(max(probs))
             return probs, conf
         # fallback: decision_function -> softmax
-        if hasattr(clf, "decision_function"):
-            dfv = clf.decision_function(Xq)
+        if hasattr(clf_local, "decision_function"):
+            dfv = clf_local.decision_function(Xq)
             arr = np.array(dfv)
-            # binary returns scalar — handle
             if arr.ndim == 0 or arr.shape == ():
-                # map to two-class softmax
-                vals = np.array([ -arr, arr ])
+                vals = np.array([-arr, arr])
             else:
                 vals = arr[0] if arr.ndim > 1 else arr
-            # softmax
             ex = np.exp(vals - np.max(vals))
             probs = ex / ex.sum()
             conf = float(np.max(probs))
@@ -344,7 +336,7 @@ def get_proba_and_confidence(clf, vec, text):
         pass
     # last resort: one-hot on prediction
     try:
-        pred = int(clf.predict(vec.transform([text]))[0])
+        pred = int(clf_local.predict(vec_local.transform([text]))[0])
         probs = np.zeros(len(CLASS_LIST))
         idx = list(CLASS_LIST).index(pred) if pred in CLASS_LIST else 0
         probs[idx] = 1.0
@@ -352,18 +344,22 @@ def get_proba_and_confidence(clf, vec, text):
     except Exception:
         return None, 0.0
 
-# Faster similarity: smaller TF-IDF, cached
+
+# --- TF-IDF builder + similar-sentences helper (single canonical copy) ---
 @st.cache_data(show_spinner=False)
 def build_tfidf_for_similarity(texts, max_features=4000):
-    vec = TfidfVectorizer(max_features=max_features, ngram_range=(1,2))
-    if len(texts) == 0:
-        vec.fit(["dummy"])
-        return vec
-    vec.fit(texts)
-    return vec
+    """Build or fit a TfidfVectorizer used for quick similarity lookups."""
+    vec_local = TfidfVectorizer(max_features=max_features, ngram_range=(1, 2))
+    if not texts:
+        vec_local.fit(["dummy"])
+        return vec_local
+    vec_local.fit(texts)
+    return vec_local
+
 
 @st.cache_data(show_spinner=False)
 def similar_sentences_tfidf(query, texts, k=3, max_features=4000):
+    """Return top-k most similar texts to query using cached TF-IDF."""
     if not texts:
         return []
     tvec = build_tfidf_for_similarity(texts, max_features=max_features)
@@ -372,26 +368,7 @@ def similar_sentences_tfidf(query, texts, k=3, max_features=4000):
     sims = cosine_similarity(q, A)[0]
     idx = np.argsort(-sims)[:k]
     return [texts[i] for i in idx if i < len(texts)]
-# ---------------- TF-IDF builder for similarity (cached) ----------------
-@st.cache_data(show_spinner=False)
-def build_tfidf_for_similarity(texts):
-    vec = TfidfVectorizer(max_features=8000, ngram_range=(1,2))
-    if len(texts) == 0:
-        vec.fit(["dummy"])
-        return vec
-    vec.fit(texts)
-    return vec
 
-@st.cache_data(show_spinner=False)
-def similar_sentences_tfidf(query, texts, k=3):
-    if len(texts) == 0:
-        return []
-    tvec = build_tfidf_for_similarity(texts)
-    A = tvec.transform(texts)
-    q = tvec.transform([query])
-    sims = cosine_similarity(q, A)[0]
-    idx = np.argsort(-sims)[:k]
-    return [texts[i] for i in idx if i < len(texts)]
 
 # ---------------- prediction history for export ----------------
 if "pred_history" not in st.session_state:
@@ -410,19 +387,25 @@ st.markdown("<p style='margin:0; color:#9fbbe0'>Dark • Neon • Smooth transit
 st.markdown('</div>', unsafe_allow_html=True)
 
 # top-right tiny signature
-st.markdown(f'<div style="position:fixed; right:18px; top:12px; color:#9aaed3; font-size:12px">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>', unsafe_allow_html=True)
-# global threshold slider (declare once per page render)
-thresh = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.35, 0.01, key="conf_thresh")
+st.markdown(
+    f'<div style="position:fixed; right:18px; top:12px; color:#9aaed3; font-size:12px">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>',
+    unsafe_allow_html=True,
+)
+
 # ---------------- Navigation ----------------
 nav = st.session_state.get("nav", "home")
 AUTHOR_TEXT = "Code Author — Harsh Raundal"
 AUTHOR_LINK = "https://github.com/BlacklegCODE"
+
 # ---------------- PAGES ----------------
 if nav == "test":
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("Test Emotions !")
     st.write("Type a sentence and press Check. Prediction is fast (Hashing + SGD).")
+
+    # global threshold slider (declare once per page render)
     thresh = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.35, 0.01, key="conf_thresh")
+
     user_text = st.text_area("Your sentence", height=160, key="input_text")
 
     if st.button("Check", key="btn_check"):
@@ -434,11 +417,8 @@ if nav == "test":
 
             if res is None:
                 st.info("Model not available. Showing closest examples.")
-                sims = similar_sentences_tfidf(
-                    user_text,
-                    df["text"].astype(str).tolist(),
-                    k=3
-                )
+                sims = similar_sentences_tfidf(user_text, df["text"].astype(str).tolist(), k=3)
+                st.markdown("**Closest examples:**")
                 for s in sims:
                     st.write("• " + s)
 
@@ -446,42 +426,20 @@ if nav == "test":
                 lab, name = res
                 emoji = EMOJI_MAP.get(int(lab), "❓")
 
-                # sliders
-               # ----- stable gauge (single element, safe) -----
-target_val = int(round(conf * 100)) if conf else 0
-figg = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=target_val,
-    gauge={'axis': {'range': [0, 100]}},
-    title={'text': f"{name.upper()} — confidence"},
-    number={'suffix': "%"}
-))
-figg.update_layout(height=260, margin=dict(l=10, r=10, t=40, b=10))
-st.plotly_chart(figg, use_container_width=True)
+                # intensity slider (no fixed key to avoid duplicate-key errors)
+                intensity = st.slider("Tone / intensity", 0, 100, 50)
 
-
-               # ----- stable gauge (single element, safe) -----
-target_val = int(round(conf * 100)) if conf else 0
-figg = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=target_val,
-    gauge={'axis': {'range': [0, 100]}},
-    title={'text': f"{name.upper()} — confidence"},
-    number={'suffix': "%"}
-))
-figg.update_layout(height=260, margin=dict(l=10, r=10, t=40, b=10))
-st.plotly_chart(figg, use_container_width=True)
-
-
-                # final gauge
+                # ----- stable gauge (single element, safe) -----
+                target_val = int(round(conf * 100)) if conf else 0
                 figg = go.Figure(go.Indicator(
                     mode="gauge+number",
                     value=target_val,
                     gauge={'axis': {'range': [0, 100]}},
+                    title={'text': f"{name.upper()} — confidence"},
                     number={'suffix': "%"}
                 ))
-                figg.update_layout(height=260)
-                gauge_placeholder.plotly_chart(figg, use_container_width=True)
+                figg.update_layout(height=260, margin=dict(l=10, r=10, t=40, b=10))
+                st.plotly_chart(figg, use_container_width=True)
 
                 # ----- threshold hide -----
                 if conf < thresh:
@@ -527,39 +485,52 @@ st.plotly_chart(figg, use_container_width=True)
                 if len(st.session_state.timeline) > MAX_TIMELINE:
                     st.session_state.timeline = st.session_state.timeline[-MAX_TIMELINE:]
 
-# --- realtime timeline plot (last N preds) ---
-if st.session_state.timeline:
-    tl = st.session_state.timeline
-    df_tl = pd.DataFrame(tl)
-    # ensure ts for plotting
-    df_tl["ts_str"] = df_tl["ts"].dt.strftime("%H:%M:%S")
-    # y is label index for plotting
-    df_tl["y"] = df_tl["label"].astype(int)
-    # build scatter line with emoji hover (use customdata)
-    fig_t = go.Figure()
-    fig_t.add_trace(go.Scatter(
-        x=df_tl["ts_str"],
-        y=df_tl["y"],
-        mode="lines+markers",
-        marker=dict(size=8 + (df_tl["intensity"]/10)),
-        line=dict(width=2),
-        text=df_tl["emoji"],  # shows on hover as text if used in hovertemplate
-        customdata=np.stack([df_tl["emoji"], df_tl["conf"], df_tl["intensity"]], axis=1),
-        hovertemplate="<b>%{x}</b><br>Emotion: %{y}<br>Emoji: %{customdata[0]}<br>Conf: %{customdata[1]:.2f}<br>Intensity: %{customdata[2]}<extra></extra>"
-    ))
-    fig_t.update_yaxes(tickmode="array",
-                       tickvals=list(sorted(list(EMOTION_MAP.keys()))),
-                       ticktext=[EMOTION_MAP[k].capitalize() for k in sorted(EMOTION_MAP.keys())])
-    fig_t.update_layout(title="Realtime Predictions timeline", margin=dict(l=20,r=20,t=30,b=20), height=300)
-    st.plotly_chart(fig_t, use_container_width=True)
+    # --- realtime timeline plot (last N preds) ---
+    if st.session_state.timeline:
+        tl = st.session_state.timeline
+        df_tl = pd.DataFrame(tl)
+        # ensure ts for plotting (convert if needed)
+        if not pd.api.types.is_datetime64_any_dtype(df_tl["ts"]):
+            df_tl["ts"] = pd.to_datetime(df_tl["ts"])
+        df_tl["ts_str"] = df_tl["ts"].dt.strftime("%H:%M:%S")
+        # y is label index for plotting
+        df_tl["y"] = df_tl["label"].astype(int)
+        # build scatter line with emoji hover (use customdata)
+        fig_t = go.Figure()
+        fig_t.add_trace(go.Scatter(
+            x=df_tl["ts_str"],
+            y=df_tl["y"],
+            mode="lines+markers",
+            marker=dict(size=(8 + (df_tl["intensity"] / 10)).tolist()),
+            line=dict(width=2),
+            text=df_tl["emoji"],
+            customdata=np.stack([df_tl["emoji"], df_tl["conf"], df_tl["intensity"]], axis=1),
+            hovertemplate="<b>%{x}</b><br>Emotion: %{y}<br>Emoji: %{customdata[0]}<br>Conf: %{customdata[1]:.2f}<br>Intensity: %{customdata[2]}<extra></extra>"
+        ))
+        fig_t.update_yaxes(tickmode="array",
+                           tickvals=list(sorted(list(EMOTION_MAP.keys()))),
+                           ticktext=[EMOTION_MAP[k].capitalize() for k in sorted(EMOTION_MAP.keys())])
+        fig_t.update_layout(title="Realtime Predictions timeline", margin=dict(l=20, r=20, t=30, b=20), height=300)
+        st.plotly_chart(fig_t, use_container_width=True)
 
-# export predictions history button
+    # export predictions history button
     if st.session_state.pred_history:
         hist_df = pd.DataFrame(st.session_state.pred_history)
+        # ensure emoji/conf/intensity columns exist
+        if "emoji" not in hist_df.columns:
+            hist_df["emoji"] = hist_df["label"].map(lambda x: EMOJI_MAP.get(int(x), "❓"))
+        if "confidence" not in hist_df.columns:
+            hist_df["confidence"] = 0.0
+        if "intensity" not in hist_df.columns:
+            hist_df["intensity"] = 50
         csv_bytes = hist_df.to_csv(index=False).encode("utf-8")
         st.download_button("Download predictions (CSV)", data=csv_bytes, file_name="predictions_history.csv", mime="text/csv")
+
     # author small footer here
-    st.markdown(f'<div style="margin-top:10px; font-size:12px; color:#9aaed3">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="margin-top:10px; font-size:12px; color:#9aaed3">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>',
+        unsafe_allow_html=True
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
 elif nav == "examples":
@@ -593,7 +564,10 @@ elif nav == "examples":
                                    file_name=f"examples_{EMOTION_MAP[chosen]}.csv", mime="text/csv")
         st.markdown('</div>', unsafe_allow_html=True)
     # small signature
-    st.markdown(f'<div style="margin-top:10px; font-size:12px; color:#9aaed3">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="margin-top:10px; font-size:12px; color:#9aaed3">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>',
+        unsafe_allow_html=True
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
 elif nav == "stats":
@@ -623,7 +597,10 @@ elif nav == "stats":
     csv_counts = counts_df.to_csv(index=False).encode("utf-8")
     st.download_button("Download counts (CSV)", data=csv_counts, file_name="emotion_counts.csv", mime="text/csv")
 
-    st.markdown(f'<div style="margin-top:10px; font-size:12px; color:#9aaed3">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="margin-top:10px; font-size:12px; color:#9aaed3">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>',
+        unsafe_allow_html=True
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
 else:
@@ -637,13 +614,17 @@ else:
         • Stats: bar, pie, avg words + download counts.
         """)
         st.write(f"Data loaded from: `{CSV_PATH}`")
-        
+
         # prominent author block on help page
-        st.markdown(f'<div style="margin-top:8px; padding:10px; border-radius:8px; background:rgba(120,80,255,0.02); color:#cfe6ff;">{AUTHOR_TEXT} — <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="margin-top:8px; padding:10px; border-radius:8px; background:rgba(120,80,255,0.02); color:#cfe6ff;">{AUTHOR_TEXT} — <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>',
+            unsafe_allow_html=True
+        )
     else:
         st.subheader("Welcome — Emotion Studio")
         st.write("Use the sidebar to navigate. Sidebar buttons are centered and styled neon.")
     st.markdown('</div>', unsafe_allow_html=True)
+
 AUTHOR_TEXT = "Code Author — Harsh Raundal"
 AUTHOR_LINK = "https://github.com/BlacklegCODE"
 # ---------------- footer signature ----------------
