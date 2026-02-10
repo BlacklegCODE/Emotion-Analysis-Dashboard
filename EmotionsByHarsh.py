@@ -1,4 +1,3 @@
-
 import os
 import io
 import time
@@ -31,6 +30,29 @@ st.markdown(
         color: #e6eef8;
         font-family: 'Inter', system-ui, -apple-system;
     }}
+
+    .result-hero {
+    font-size:72px;
+    text-align:center;
+    padding:18px;
+    border-radius:18px;
+    background: linear-gradient(135deg,#7C4DFF22,#00C2FF22);
+    border:1px solid rgba(124,77,255,0.25);
+    box-shadow: 0 0 40px rgba(124,77,255,0.25);
+    animation: popIn .4s ease;
+}
+
+@keyframes popIn {
+    from {transform:scale(.9); opacity:0;}
+    to {transform:scale(1); opacity:1;}
+}
+
+.emotion-chip {
+    display:inline-block;
+    padding:6px 14px;
+    border-radius:999px;
+    background:#111
+
 
     /* Sidebar — translucent, centered, equidistant with 3cm margins */
     section[data-testid="stSidebar"] {{
@@ -125,6 +147,8 @@ st.markdown(
         section[data-testid="stSidebar"]{{ display:none; }}
         .main > div.block-container {{ padding-left: 18px; }}
     }}
+
+    
     </style>
     """,
     unsafe_allow_html=True,
@@ -149,8 +173,7 @@ with st.sidebar:
     # signature in sidebar
     st.markdown(f'<div class="author-link">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank">GitHub</a></div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-
-# ---------------- Data loader ----------------
+    
 # ---------------- Data loader (supports .csv and .csv.gz) ----------------
 @st.cache_data(show_spinner=False)
 def load_csv(path):
@@ -448,4 +471,5 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
 
