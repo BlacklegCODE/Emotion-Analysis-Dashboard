@@ -21,41 +21,46 @@ CLASS_LIST = np.array([0, 1, 2, 3, 4, 5])
 
 # ---------------- Polished CSS + Animations ----------------
 st.markdown(
-    f"""
+    """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
-    html, body, .reportview-container, .main, .block-container {{
+    html, body, .reportview-container, .main, .block-container {
         background: #030617 !important;
         color: #e6eef8;
         font-family: 'Inter', system-ui, -apple-system;
-    }}
+    }
 
+    /* ===== Heavy result hero ===== */
     .result-hero {
-    font-size:72px;
-    text-align:center;
-    padding:18px;
-    border-radius:18px;
-    background: linear-gradient(135deg,#7C4DFF22,#00C2FF22);
-    border:1px solid rgba(124,77,255,0.25);
-    box-shadow: 0 0 40px rgba(124,77,255,0.25);
-    animation: popIn .4s ease;
-}
+        font-size:72px;
+        text-align:center;
+        padding:18px;
+        border-radius:18px;
+        background: linear-gradient(135deg,#7C4DFF22,#00C2FF22);
+        border:1px solid rgba(124,77,255,0.25);
+        box-shadow: 0 0 40px rgba(124,77,255,0.25);
+        animation: popIn .4s ease;
+    }
 
-@keyframes popIn {
-    from {transform:scale(.9); opacity:0;}
-    to {transform:scale(1); opacity:1;}
-}
+    @keyframes popIn {
+        from {transform:scale(.9); opacity:0;}
+        to {transform:scale(1); opacity:1;}
+    }
 
-.emotion-chip {
-    display:inline-block;
-    padding:6px 14px;
-    border-radius:999px;
-    background:#111
+    .emotion-chip {
+        display:inline-block;
+        padding:6px 14px;
+        border-radius:999px;
+        background:#111a33;
+        border:1px solid #2a3a66;
+        font-weight:700;
+        margin:4px;
+        box-shadow: 0 0 12px rgba(124,77,255,0.25);
+    }
 
-
-    /* Sidebar — translucent, centered, equidistant with 3cm margins */
-    section[data-testid="stSidebar"] {{
+    /* ===== Sidebar ===== */
+    section[data-testid="stSidebar"] {
         min-width: 300px;
         padding-top: 3cm;
         padding-bottom: 3cm;
@@ -65,8 +70,9 @@ st.markdown(
         background: linear-gradient(180deg, rgba(14,16,32,0.78), rgba(6,8,18,0.62));
         border-right: 1px solid rgba(120,80,255,0.08);
         backdrop-filter: blur(8px);
-    }}
-    section[data-testid="stSidebar"] .sidebar-content {{
+    }
+
+    section[data-testid="stSidebar"] .sidebar-content {
         width: 86%;
         display:flex;
         gap:12px;
@@ -74,10 +80,10 @@ st.markdown(
         align-items:center;
         justify-content:center;
         height: calc(100% - 6cm);
-    }}
+    }
 
-    /* Buttons neon */
-    section[data-testid="stSidebar"] .stButton>button {{
+    /* ===== Neon buttons ===== */
+    section[data-testid="stSidebar"] .stButton>button {
         width:100%;
         padding:12px;
         border-radius:12px;
@@ -85,70 +91,65 @@ st.markdown(
         background: linear-gradient(90deg,#06102a,#081324);
         color:#ecf6ff;
         border: 1px solid rgba(130,90,255,0.24);
-        box-shadow: 0 8px 28px rgba(100,60,230,0.08), 0 0 10px rgba(100,60,230,0.02) inset;
+        box-shadow: 0 8px 28px rgba(100,60,230,0.12);
         transition: transform .12s, box-shadow .12s, border-color .12s;
         cursor:pointer;
-    }}
-    section[data-testid="stSidebar"] .stButton>button:hover {{
-        transform: translateY(-4px) scale(1.01);
-        box-shadow: 0 30px 70px rgba(100,60,230,0.18), 0 0 40px rgba(100,60,230,0.08);
+    }
+
+    section[data-testid="stSidebar"] .stButton>button:hover {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 30px 70px rgba(100,60,230,0.25);
         border-color: rgba(200,150,255,0.6);
-    }}
-    section[data-testid="stSidebar"] .stButton>button.help-btn {{
-        background: linear-gradient(90deg,#0b1218,#0f1820);
-    }}
+    }
 
-    /* main content reserved space */
-    .main > div.block-container {{ padding-left: 44px; padding-right: 44px; padding-top: 24px; }}
-
-    /* card with subtle animation */
-    .card {{
+    /* ===== Cards ===== */
+    .card {
         border-radius:12px;
         padding:18px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.008));
-        box-shadow: 0 18px 48px rgba(2,6,23,0.65);
-        border: 1px solid rgba(120,80,255,0.035);
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+        box-shadow: 0 18px 48px rgba(2,6,23,0.75);
+        border: 1px solid rgba(120,80,255,0.08);
         color: #eaf3ff;
         animation: fadeUp .45s ease both;
-    }}
-    @keyframes fadeUp {{
-        from {{ opacity:0; transform: translateY(8px); }}
-        to   {{ opacity:1; transform: translateY(0px); }}
-    }}
+    }
 
-    /* examples slide-in */
-    .examples-box {{ max-height:60vh; overflow:auto; padding-right:8px; animation: slideLeft .45s ease both; }}
-    @keyframes slideLeft {{
-        from {{ opacity:0; transform: translateX(12px); }}
-        to {{ opacity:1; transform: translateX(0px); }}
-    }}
+    @keyframes fadeUp {
+        from { opacity:0; transform: translateY(8px); }
+        to { opacity:1; transform: translateY(0px); }
+    }
 
-    /* small text/link styles */
-    .muted {{ color:#9fbbe0; font-size:13px; }}
-    .author-link {{ font-size:12px; color:#9aaed3; text-align:center; }}
-    .author-link a {{ color:#7c9cff; text-decoration:none; }}
-    .author-link a:hover {{ text-decoration:underline; }}
+    /* ===== Examples slide ===== */
+    .examples-box {
+        max-height:60vh;
+        overflow:auto;
+        padding-right:8px;
+        animation: slideLeft .45s ease both;
+    }
 
-    /* neon border animation for main container */
-    .neon-border {{
+    @keyframes slideLeft {
+        from { opacity:0; transform: translateX(12px); }
+        to { opacity:1; transform: translateX(0px); }
+    }
+
+    /* ===== Neon border ===== */
+    .neon-border {
         border-radius:14px;
         padding:8px;
-        box-shadow: 0 0 0 rgba(0,0,0,0);
-        border: 1px solid rgba(120,80,255,0.06);
+        border: 1px solid rgba(120,80,255,0.08);
         animation: neonPulse 4.5s ease-in-out infinite;
-    }}
-    @keyframes neonPulse {{
-        0% {{ box-shadow: 0 0 6px rgba(124,77,255,0.04); }}
-        50% {{ box-shadow: 0 0 26px rgba(124,77,255,0.1); }}
-        100% {{ box-shadow: 0 0 6px rgba(124,77,255,0.04); }}
-    }}
+    }
 
-    @media (max-width:900px) {{
-        section[data-testid="stSidebar"]{{ display:none; }}
-        .main > div.block-container {{ padding-left: 18px; }}
-    }}
+    @keyframes neonPulse {
+        0% { box-shadow: 0 0 6px rgba(124,77,255,0.05); }
+        50% { box-shadow: 0 0 26px rgba(124,77,255,0.18); }
+        100% { box-shadow: 0 0 6px rgba(124,77,255,0.05); }
+    }
 
-    
+    @media (max-width:900px) {
+        section[data-testid="stSidebar"] { display:none; }
+        .main > div.block-container { padding-left: 18px; }
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -471,5 +472,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
 
 
