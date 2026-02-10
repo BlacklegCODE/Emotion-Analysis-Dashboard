@@ -379,7 +379,16 @@ if nav == "test":
                     st.write("• " + s)
             else:
                 lab, name = res
-                st.success(f"Predicted: **{name.upper()}**")
+                emoji = EMOJI_MAP.get(int(lab), "❓")
+                st.markdown(
+                    f"""
+                    <div class="result-hero">
+                        <div style="font-size:90px">{emoji}</div>
+                        {name.upper()}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
                 sims = similar_sentences_tfidf(user_text, df[df["label"] == lab]["text"].astype(str).tolist(), k=3)
                 if not sims:
                     sims = similar_sentences_tfidf(user_text, df["text"].astype(str).tolist(), k=3)
@@ -496,6 +505,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
 
 
 
