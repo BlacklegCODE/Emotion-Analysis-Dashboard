@@ -200,20 +200,29 @@ with st.sidebar:
     st.markdown('</div>', unsafe_allow_html=True)
     
 # ---------------- Data loader (supports .csv and .csv.gz) ----------------
+# --- TF-IDF builder + similar-sentences helper (single canonical copy) ---
 @st.cache_data(show_spinner=False)
-def load_csv(path):
-    if not os.path.exists(path):
-        return None
-    try:
-        # works for both .csv and .csv.gz
-        df = pd.read_csv(path, compression="infer", encoding="utf-8")
-        # if file has no header, enforce names
-        if df.shape[1] == 2:
-            df.columns = ["text", "label"]
-        df = df.dropna().astype({"text": str, "label": int})
-        return df
-    except Exception:
-        return None
+def build_tfidf_for_similarity(texts, max_features=4000):
+    """Build or fit a TfidfVectorizer used for quick similarity lookups."""
+    vec = TfidfVectorizer(max_features=max_features, ngram_range=(1,2))
+    # If no texts, fit on a dummy sample to avoid errors
+    if not texts:
+        vec.fit(["dummy"])
+        return vec
+    vec.fit(texts)
+    return vec
+
+@st.cache_data(show_spinner=False)
+def similar_sentences_tfidf(query, texts, k=3, max_features=4000):
+    """Return top-k most similar texts to query using cached TF-IDF."""
+    if not texts:
+        return []
+    tvec = build_tfidf_for_similarity(texts, max_features=max_features)
+    A = tvec.transform(texts)
+    q = tvec.transform([query])
+    sims = cosine_similarity(q, A)[0]
+    idx = np.argsort(-sims)[:k]
+    return [texts[i] for i in idx if i < len(texts)]
 
 
 df = load_csv(CSV_PATH)
@@ -402,7 +411,8 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # top-right tiny signature
 st.markdown(f'<div style="position:fixed; right:18px; top:12px; color:#9aaed3; font-size:12px">{AUTHOR_TEXT} · <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>', unsafe_allow_html=True)
-
+# global threshold slider (declare once per page render)
+thresh = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.35, 0.01, key="conf_thresh")
 # ---------------- Navigation ----------------
 nav = st.session_state.get("nav", "home")
 AUTHOR_TEXT = "Code Author — Harsh Raundal"
@@ -412,7 +422,7 @@ if nav == "test":
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("Test Emotions !")
     st.write("Type a sentence and press Check. Prediction is fast (Hashing + SGD).")
-
+    thresh = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.35, 0.01, key="conf_thresh")
     user_text = st.text_area("Your sentence", height=160, key="input_text")
 
     if st.button("Check", key="btn_check"):
@@ -437,22 +447,31 @@ if nav == "test":
                 emoji = EMOJI_MAP.get(int(lab), "❓")
 
                 # sliders
-                thresh = st.sidebar.slider(
-                    "Confidence threshold",
-                    0.0, 1.0, 0.35, 0.01
-                )
-                intensity = st.slider(
-                    "Tone / intensity",
-                    0, 100, 50,
-                    key="intensity_slider"
-                )
+               # ----- stable gauge (single element, safe) -----
+target_val = int(round(conf * 100)) if conf else 0
+figg = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=target_val,
+    gauge={'axis': {'range': [0, 100]}},
+    title={'text': f"{name.upper()} — confidence"},
+    number={'suffix': "%"}
+))
+figg.update_layout(height=260, margin=dict(l=10, r=10, t=40, b=10))
+st.plotly_chart(figg, use_container_width=True)
 
-                # ----- animated gauge -----
-                gauge_placeholder = st.empty()
-                target_val = int(round(conf * 100)) if conf else 0
 
-                for v in range(...):
-                    gauge_placeholder.plotly_chart(figg, ...)
+               # ----- stable gauge (single element, safe) -----
+target_val = int(round(conf * 100)) if conf else 0
+figg = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=target_val,
+    gauge={'axis': {'range': [0, 100]}},
+    title={'text': f"{name.upper()} — confidence"},
+    number={'suffix': "%"}
+))
+figg.update_layout(height=260, margin=dict(l=10, r=10, t=40, b=10))
+st.plotly_chart(figg, use_container_width=True)
+
 
                 # final gauge
                 figg = go.Figure(go.Indicator(
@@ -637,12 +656,3 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
-
-
-
-
-
-
-
-
-
