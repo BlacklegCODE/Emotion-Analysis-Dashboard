@@ -451,16 +451,8 @@ if nav == "test":
                 gauge_placeholder = st.empty()
                 target_val = int(round(conf * 100)) if conf else 0
 
-                for v in range(0, target_val + 1, max(1, target_val // 20 or 1)):
-                    figg = go.Figure(go.Indicator(
-                        mode="gauge+number",
-                        value=v,
-                        gauge={'axis': {'range': [0, 100]}},
-                        number={'suffix': "%"}
-                    ))
-                    figg.update_layout(height=260)
-                    gauge_placeholder.plotly_chart(figg, use_container_width=True)
-                    time.sleep(0.01)
+                for v in range(...):
+                    gauge_placeholder.plotly_chart(figg, ...)
 
                 # final gauge
                 figg = go.Figure(go.Indicator(
@@ -645,6 +637,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
 
 
 
