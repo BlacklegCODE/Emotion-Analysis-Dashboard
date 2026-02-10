@@ -149,6 +149,19 @@ st.markdown(
         section[data-testid="stSidebar"] { display:none; }
         .main > div.block-container { padding-left: 18px; }
     }
+/* emoji hero */
+.emoji-hero {
+    font-size:96px;
+    text-align:center;
+    padding:12px 0;
+    line-height:1;
+}
+.result-hero small {
+    display:block;
+    font-size:18px;
+    margin-top:6px;
+    color:#cfe6ff;
+}
 
     </style>
     """,
@@ -454,6 +467,7 @@ else:
         • Stats: bar, pie, avg words + download counts.
         """)
         st.write(f"Data loaded from: `{CSV_PATH}`")
+        
         # prominent author block on help page
         st.markdown(f'<div style="margin-top:8px; padding:10px; border-radius:8px; background:rgba(120,80,255,0.02); color:#cfe6ff;">{AUTHOR_TEXT} — <a href="{AUTHOR_LINK}" target="_blank" style="color:#7c9cff">GitHub</a></div>', unsafe_allow_html=True)
     else:
@@ -472,6 +486,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
 
 
 
