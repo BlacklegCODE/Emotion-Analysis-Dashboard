@@ -42,6 +42,20 @@ st.markdown(
         box-shadow: 0 0 40px rgba(124,77,255,0.25);
         animation: popIn .4s ease;
     }
+    /* emoji hero */
+.emoji-hero {
+    font-size:96px;
+    text-align:center;
+    padding:12px 0;
+    line-height:1;
+}
+.result-hero small {
+    display:block;
+    font-size:18px;
+    margin-top:6px;
+    color:#cfe6ff;
+}
+
 
     @keyframes popIn {
         from {transform:scale(.9); opacity:0;}
@@ -149,20 +163,6 @@ st.markdown(
         section[data-testid="stSidebar"] { display:none; }
         .main > div.block-container { padding-left: 18px; }
     }
-/* emoji hero */
-.emoji-hero {
-    font-size:96px;
-    text-align:center;
-    padding:12px 0;
-    line-height:1;
-}
-.result-hero small {
-    display:block;
-    font-size:18px;
-    margin-top:6px;
-    color:#cfe6ff;
-}
-
     </style>
     """,
     unsafe_allow_html=True,
@@ -486,6 +486,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # ------------- End -------------
+
 
 
 
