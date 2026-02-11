@@ -402,10 +402,7 @@ if nav == "test":
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("Test Emotions !")
     st.write("Type a sentence and press Check. Prediction is fast (Hashing + SGD).")
-
-    # global threshold slider (declare once per page render)
-    thresh = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.35, 0.01, key="conf_thresh")
-
+    thresh = 0.35
     user_text = st.text_area("Your sentence", height=160, key="input_text")
 
     if st.button("Check", key="btn_check"):
@@ -426,8 +423,7 @@ if nav == "test":
                 lab, name = res
                 emoji = EMOJI_MAP.get(int(lab), "❓")
 
-                # intensity slider (no fixed key to avoid duplicate-key errors)
-                intensity = st.slider("Tone / intensity", 0, 100, 50)
+                intensity = 50
 
                 # ----- stable gauge (single element, safe) -----
                 target_val = int(round(conf * 100)) if conf else 0
